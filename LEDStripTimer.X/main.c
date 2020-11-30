@@ -1,5 +1,5 @@
 /*
- * File:   ledstriptimer.c
+ * File:   main.c
  * Author: David Rice
  *
  * Created on October 11, 2016, 5:31 PM
@@ -127,7 +127,7 @@ volatile uint8_t serial_pending = FALSE;
 volatile uint8_t ticks = 0;
 
 /* ISR processes received data from Bluetooth (EUSART1) and increments system tick */
-void interrupt ISR(void) {
+void __interrupt() isr(void) {
     if (INTCONbits.PEIE) {
         if (PIE1bits.RCIE && PIR1bits.RCIF) {
             serial_data = RC1REG;
@@ -148,7 +148,7 @@ void interrupt ISR(void) {
  * Standard port initialization
  * Later functions will change some of these settings 
  */
-void InitPorts(void) {
+void init_ports(void) {
     /* Disable all analog features */
     ANSELA = 0x00;
     ANSELC = 0x00;
@@ -161,12 +161,12 @@ void InitPorts(void) {
     LATA = 0x00;
     LATC = 0x00;
     
-    /* Set TTL on PC5 due to 3.3V output from Bluteooth module */
+    /* Set TTL on PC5 due to 3.3V output from Bluetooth module */
     INLVLCbits.INLVLC5 = 0;
 }
 
 /* Initialize EUSART1 hardware registers */
-void InitUART(void) {
+void init_uart(void) {
     UART_RX_TRIS = 1; /* Set RX pin as input */
     
     RC1STAbits.CREN = 1; /* Continuous receive */
@@ -175,7 +175,7 @@ void InitUART(void) {
     RC1STAbits.SPEN = 1; /* Enable serial port */
 }
 
-void InitTimers(void) {
+void init_timers(void) {
     TMR0H = 61; /* Timer0 period of 61 in 8-bit mode provides about 8 interrupts per second */
     
     T0CON1bits.T0CS = 0b010; /* Timer0 clock source is Fosc/4 (i.e., 8 MHz at Fosc = 32 MHz) */
@@ -187,21 +187,21 @@ void InitTimers(void) {
     T2CONbits.TMR2ON = 1; /* Enable Timer2 */
 }
 
-void InitSPI(void) {
+void init_spi(void) {
     /* SPI used only to drive CLC so no outputs defined */
     
     SSP1CON1bits.SSPM = 0b0011; /* Set SPI mode with CLK = T2_match/2 */
     SSP1CON1bits.SSPEN = 1; /* Enable MSSP */
 }
 
-void InitPWM(void) {
+void init_pwm(void) {
     PWM5DCH = 1;
     PWM5DCL = 0;
     
     PWM5CONbits.PWM5EN = 1; /* Enable PWM generator */
 }
 
-void InitCLC(void) {
+void init_clc(void) {
     RA5PPS = 0b00100; /* CLC1OUT on RA5 */
     
     CLC1SEL0bits.LC1D1S = 0b10011; /* CLC1 input 1 is SDO1 */
@@ -229,14 +229,14 @@ void InitCLC(void) {
     CLC1CONbits.LC1EN = 1; /* Enable CLC1 */
 }
 
-void TransferLEDByte(uint8_t data) {
+void transfer_led_byte(uint8_t data) {
     SSP1BUF = data;
 
     while (!SSP1STATbits.BF); /* Spin until transfer is complete */
 }
 
 /* Sets all LEDs to a given RGB value */
-void SetAll(uint8_t red, uint8_t green, uint8_t blue) {
+void set_all(uint8_t red, uint8_t green, uint8_t blue) {
     uint16_t cur_led;
     
     for (cur_led = 0; cur_led <= max_led_index; cur_led++) {
@@ -246,42 +246,42 @@ void SetAll(uint8_t red, uint8_t green, uint8_t blue) {
     }
 }
 
-void SetOne(uint16_t index, uint8_t red, uint8_t green, uint8_t blue) {
+void set_one(uint16_t index, uint8_t red, uint8_t green, uint8_t blue) {
     color_data[RED(index)] = red;
     color_data[GREEN(index)] = green;
     color_data[BLUE(index)] = blue;
 }
 
-void SetTimerDisplay(uint16_t num_off, uint8_t display_stage) {
+void set_timer_display(uint16_t num_off, uint8_t display_stage) {
     uint16_t max_index;
     
     uint8_t red;
     uint8_t green;
     uint8_t blue;
     
-    SetAll(0x00, 0x00, 0x00);
+    set_all(0x00, 0x00, 0x00);
     
     max_index = max_led_index - num_off;
     
     switch (display_stage) {
         case STAGE_RUNNING:       
-            SetOne(num_off, 0xFF, 0xFF, 0x00);
-            SetOne(max_index, 0xFF, 0xFF, 0x00);
+            set_one(num_off, 0xFF, 0xFF, 0x00);
+            set_one(max_index, 0xFF, 0xFF, 0x00);
 
             for (uint16_t i = num_off + 1; i < max_index; i++) {
-                SetOne(i, 0x00, 0xFF, 0x00); 
+                set_one(i, 0x00, 0xFF, 0x00); 
             }
             break;
         case STAGE_PRESTART:
-            /* red = rand() % 32 * 4;
+            red = rand() % 32 * 4;
             green = rand() % 32 * 4;
-            blue = rand() % 32 * 4; */
-            SetOne(num_off, 0x00, 0x00, 0xFF);
-            SetOne(max_index, 0x00, 0x00, 0xFF);
+            blue = rand() % 32 * 4;
+            set_one(num_off, red, green, blue);
+            set_one(max_index, red, green, blue);
             break;
         case STAGE_PRESTOP:          
             for (uint16_t i = num_off; i <= max_index; i++) {
-                SetOne(i, 0xFF, 0x00, 0x00); 
+                set_one(i, 0xFF, 0x00, 0x00); 
             }
             break;      
     }
@@ -292,7 +292,7 @@ void SetTimerDisplay(uint16_t num_off, uint8_t display_stage) {
  * This is a time-critical function so interrupts are disabled during data transmission
  * Interrupts could be disabled for up to 10 ms when using all 300 LEDs
  */
-void SendData(void) {
+void send_data(void) {
     uint16_t cur_byte_num;
     uint16_t num_bytes;
     uint8_t state;
@@ -304,34 +304,34 @@ void SendData(void) {
     num_bytes = ((uint16_t)max_led_index + 1) * 3;
     
     for (cur_byte_num = 0; cur_byte_num < num_bytes; cur_byte_num++) {
-        TransferLEDByte(color_data[cur_byte_num]); 
+        transfer_led_byte(color_data[cur_byte_num]); 
     }
     
     /* Restore previous interrupt state */
     INTCONbits.GIE = state;
 }
 
-void PreStart() {
+void pre_start() {
     uint16_t pre_off;
     
     for (pre_off = 30; pre_off > 0; pre_off -= 1) {
-        SetTimerDisplay(pre_off, STAGE_PRESTART);
-        SendData();
-        __delay_ms(50);
+        set_timer_display(pre_off, STAGE_PRESTART);
+        send_data();
+        __delay_ms(30);
     }
 }
 
-void PreStop() {
+void pre_stop() {
     uint16_t pre_off;
     
     for (pre_off = 30; pre_off > 0; pre_off -= 1) {
-        SetTimerDisplay(pre_off, STAGE_PRESTOP);
-        SendData();
+        set_timer_display(pre_off, STAGE_PRESTOP);
+        send_data();
         __delay_ms(35);
     }
 }
 
-uint8_t GetTicks(void) {
+uint8_t get_ticks(void) {
     uint8_t current_ticks;
     
     PIE0bits.TMR0IE = 0;
@@ -350,39 +350,39 @@ void main(void) {
     
     length = 16; /* 1 minute */
     
-    InitPorts(); /* Initialize I/O ports */
-    InitSPI();
-    InitTimers();
-    InitPWM();
-    InitCLC();
+    init_ports(); /* Initialize I/O ports */
+    init_spi();
+    init_timers();
+    init_pwm();
+    init_clc();
 
     mode = MODE_STOPPED;
     off = 0;
-    SetAll(0x00, 0x00, 0x00); 
-    SendData(); /* Update display */
+    set_all(0x00, 0x00, 0x00); 
+    send_data(); /* Update display */
     
     /* Begin LED test sequence */
-    SetAll(0xFF, 0x00, 0x00);
-    SendData();
+    set_all(0xFF, 0x00, 0x00);
+    send_data();
     __delay_ms(1000);
     
-    SetAll(0x00, 0xFF, 0x00);
-    SendData();
+    set_all(0x00, 0xFF, 0x00);
+    send_data();
     __delay_ms(1000);
     
-    SetAll(0x00, 0x00, 0xFF);
-    SendData();
+    set_all(0x00, 0x00, 0xFF);
+    send_data();
     __delay_ms(1000);
     
-    SetAll(0xFF, 0xFF, 0xFF);
-    SendData();
+    set_all(0xFF, 0xFF, 0xFF);
+    send_data();
     __delay_ms(1000);
     
-    SetAll(0x00, 0x00, 0x00);
-    SendData();
+    set_all(0x00, 0x00, 0x00);
+    send_data();
     /* End LED test sequence */
     
-    InitUART(); /* Initialize EUSART1 hardware */
+    init_uart(); /* Initialize EUSART1 hardware */
     
     PIE1bits.RCIE = 1; /* Enable EUSART1 receive interrupt */
     PIE0bits.TMR0IE = 1; /* Enable Timer0 overflow interrupt */
@@ -393,11 +393,11 @@ void main(void) {
         if (serial_pending) {
             switch (serial_data) {
                 case 'G':
-                    PreStart();
+                    pre_start();
                     off = 0;
-                    SetTimerDisplay(off, STAGE_RUNNING);
-                    SendData();
-                    start_ticks = GetTicks();
+                    set_timer_display(off, STAGE_RUNNING);
+                    send_data();
+                    start_ticks = get_ticks();
                     mode = MODE_RUNNING;
                     break;
                 case 'S':
@@ -436,30 +436,30 @@ void main(void) {
 
        switch (mode) {
             case MODE_RUNNING:
-                if ((uint8_t)(GetTicks() - start_ticks) >= length) {
+                if ((uint8_t)(get_ticks() - start_ticks) >= length) {
                     off++;
                     
                     if (off > (max_led_index / 2)) {
                         mode = MODE_STOPPING;
                     } else {
                     
-                    SetTimerDisplay(off, STAGE_RUNNING);
-                    SendData();
+                    set_timer_display(off, STAGE_RUNNING);
+                    send_data();
                     
-                    start_ticks = GetTicks();
+                    start_ticks = get_ticks();
                     }
                 }
                 break;
             case MODE_STOPPING:
-                SetAll(0x00, 0x00, 0x00);
-                PreStop();
-                SetAll(0xFF, 0x00, 0x00);
-                SendData();
+                set_all(0x00, 0x00, 0x00);
+                pre_stop();
+                set_all(0xFF, 0x00, 0x00);
+                send_data();
                 mode = MODE_STOPPED;
                 break;
             case MODE_TURNING_OFF:
-                SetAll(0x00, 0x00, 0x00);
-                SendData();
+                set_all(0x00, 0x00, 0x00);
+                send_data();
                 mode = MODE_STOPPED;
             case MODE_STOPPED:
                 break;    
