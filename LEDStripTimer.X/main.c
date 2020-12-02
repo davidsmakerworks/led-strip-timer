@@ -261,10 +261,10 @@ void set_timer_display(uint16_t num_off, uint8_t display_stage) {
     
     max_index = max_led_index - num_off;
     
+    set_all(0x00, 0x00, 0x00);
+    
     switch (display_stage) {
-        case STAGE_RUNNING:
-            set_all(0x00, 0x00, 0x00);
-            
+        case STAGE_RUNNING: 
             set_one(num_off, 0xFF, 0xFF, 0x00);
             set_one(max_index, 0xFF, 0xFF, 0x00);
 
@@ -272,17 +272,11 @@ void set_timer_display(uint16_t num_off, uint8_t display_stage) {
                 set_one(i, 0x00, 0xFF, 0x00); 
             }
             break;
-        case STAGE_PRESTART:
-            red = rand() % 32 * 4;
-            green = rand() % 32 * 4;
-            blue = rand() % 32 * 4;
-            
-            set_one(num_off, red, green, blue);
-            set_one(max_index, red, green, blue);
+        case STAGE_PRESTART:            
+            set_one(num_off, 0x00, 0x00, 0xFF);
+            set_one(max_index, 0x00, 0x00, 0xFF);
             break;
         case STAGE_PRESTOP:    
-            set_all(0x00, 0x00, 0x00);
-            
             for (uint16_t i = num_off; i <= max_index; i++) {
                 set_one(i, 0xFF, 0x00, 0x00); 
             }
