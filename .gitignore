@@ -3,6 +3,8 @@ build
 dist
 debug
 private
+Makefile-*
+Package-*
 
 # KiCad Files
 
