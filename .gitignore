@@ -3,6 +3,7 @@ build
 dist
 debug
 private
+.generated_files
 Makefile-*
 Package-*
 
