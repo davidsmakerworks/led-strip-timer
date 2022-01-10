@@ -268,6 +268,7 @@ void set_timer_display(uint16_t num_off, uint8_t display_stage) {
             set_one(num_off, 0xFF, 0xFF, 0x00);
             set_one(max_index, 0xFF, 0xFF, 0x00);
 
+#ifdef HOLIDAY
             for (uint16_t i = num_off + 1; i < max_index; i++) {
                 red = rand() % 32 * 4;
                 green = rand() % 32 * 4;
@@ -275,6 +276,11 @@ void set_timer_display(uint16_t num_off, uint8_t display_stage) {
                 
                 set_one(i, red, green, blue); 
             }
+#else
+            for (uint16_t i = num_off + 1; i < max_index; i++) {
+                set_one(i, 0x00, 0xFF, 0x00); 
+            }
+#endif
             break;
         case STAGE_PRESTART:            
             set_one(num_off, 0x00, 0x00, 0xFF);
