@@ -268,9 +268,19 @@ void set_timer_display(uint16_t num_off, uint8_t display_stage) {
             set_one(num_off, 0xFF, 0xFF, 0x00);
             set_one(max_index, 0xFF, 0xFF, 0x00);
 
+#ifdef HOLIDAY
+            for (uint16_t i = num_off + 1; i < max_index; i++) {
+                red = rand() % 32 * 4;
+                green = rand() % 32 * 4;
+                blue = rand() % 32 * 4;
+                
+                set_one(i, red, green, blue); 
+            }
+#else
             for (uint16_t i = num_off + 1; i < max_index; i++) {
                 set_one(i, 0x00, 0xFF, 0x00); 
             }
+#endif
             break;
         case STAGE_PRESTART:            
             set_one(num_off, 0x00, 0x00, 0xFF);
@@ -342,6 +352,8 @@ void main(void) {
     uint8_t start_ticks;
     uint16_t off;
     uint8_t length;
+    
+    uint8_t colors_rotated = FALSE;
     
     max_led_index = MAX_SUPPORTED_LED_INDEX;
     
@@ -442,8 +454,19 @@ void main(void) {
                     
                     set_timer_display(off, STAGE_RUNNING);
                     send_data();
+                    colors_rotated = TRUE;
                     
                     start_ticks = get_ticks();
+                    }
+                } else {
+                    if (get_ticks() % 4 == 0) {
+                        if (!colors_rotated) {
+                            set_timer_display(off, STAGE_RUNNING);
+                            send_data();
+                            colors_rotated = TRUE;
+                        }
+                    } else {
+                        colors_rotated = FALSE;
                     }
                 }
                 break;
