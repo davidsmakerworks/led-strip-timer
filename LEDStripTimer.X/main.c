@@ -353,7 +353,9 @@ void main(void) {
     uint16_t off;
     uint8_t length;
     
+#ifdef HOLIDAY
     uint8_t colors_rotated = FALSE;
+#endif
     
     max_led_index = MAX_SUPPORTED_LED_INDEX;
     
@@ -454,11 +456,15 @@ void main(void) {
                     
                     set_timer_display(off, STAGE_RUNNING);
                     send_data();
+#ifdef HOLIDAY
                     colors_rotated = TRUE;
+#endif
                     
                     start_ticks = get_ticks();
                     }
-                } else {
+                }
+#ifdef HOLIDAY
+                else {
                     if (get_ticks() % 4 == 0) {
                         if (!colors_rotated) {
                             set_timer_display(off, STAGE_RUNNING);
@@ -469,6 +475,7 @@ void main(void) {
                         colors_rotated = FALSE;
                     }
                 }
+#endif
                 break;
             case MODE_STOPPING:
                 set_all(0x00, 0x00, 0x00);
